@@ -10,6 +10,8 @@ import de.fhpotsdam.unfolding.providers.Google.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Observable;
+import java.util.Observer;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -26,14 +28,22 @@ import org.llrp.ltk.types.*;
 
 import de.fhpotsdam.unfolding.data.Feature;
 import de.fhpotsdam.unfolding.data.GeoJSONReader;
+import de.fhpotsdam.unfolding.data.ShapeFeature;
 import de.fhpotsdam.unfolding.geo.Location;
 
+import java.awt.Color;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import de.fhpotsdam.unfolding.marker.Marker;
+import de.fhpotsdam.unfolding.marker.SimpleLinesMarker;
 import de.fhpotsdam.unfolding.marker.SimplePointMarker;
 
 
@@ -48,7 +58,7 @@ import controlP5.*;
  * Bank). The data value is encoded to transparency via a simplistic linear
  * mapping.
  */
-public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint {
+public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observer {
 	
 //	public static HashMap<String, Integer> epcCountMap = new HashMap<String, Integer>();
     
@@ -61,15 +71,22 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint {
     public String tagsEPCRead;
     public static HashMap<String, Integer> epcCount = new HashMap<String, Integer>();
     public static HashMap<String, String> assetEPC = new HashMap<String, String>();
+    public static HashMap<Integer, Location> gpsCoordinates = new HashMap<Integer, Location>();
+    public int gpsLocCount = 0;
+    static String GPSLat, GPSLong;
       
     ControlP5 controlP5;
     Button startReader;
     Button stopReader;
     Textlabel status;
     Button exitButton;
+    Button GPSButton;
 	
     SimplePointMarker pM;
+    SimplePointMarker gpsPM;
+    SimpleLinesMarker connectionMarker;
     Location location;
+    Location gpsLocation;
 	
 	//RFID
 	
@@ -192,7 +209,27 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint {
 					}
 				});
     			
-    	
+    	GPSButton = controlP5.addButton("GPS").setValue(10).setPosition(180+80,20)
+    			.setSize(60,20).setId(1).addCallback(new CallbackListener() {
+					@Override
+					public void controlEvent(CallbackEvent event) {
+						 
+			                if (event.getAction() == ControlP5.ACTION_RELEASED) {
+			                  System.out.println("button clicked.");
+			                 // status.setText(" Reader started ");
+			                  try {
+								runGPS();
+							} catch (Exception e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+			                  //RUNNING_STATUS = 1;
+			                  //controlP5.remove(event.getController().getName());
+			                }
+			                
+						
+					}
+				});
     	
     	
     	
@@ -249,7 +286,13 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint {
             
 
             int zoomLevel = 15;
-    	    map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739));
+    	  //  map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739));
+            double initLat,initLong;
+            initLat = 30.6235;
+            initLong = -96.347619;
+            map.zoomAndPanTo(zoomLevel, new Location(initLat,initLong));
+            gpsCoordinates.put(0, new Location(initLat,initLong));
+            //-96.3476199,30.6235163
     	    // water body location 30.635620 , -96.463557
     	    //epc tag : 0xe300833b2ddd9014035050000
     	  
@@ -267,11 +310,69 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint {
        // shadeCountries();
     }
 
+protected void runGPS() {
+		// TODO Auto-generated method stub
+//	DatagramSocket serverSocket;
+//	try {
+//		serverSocket = new DatagramSocket(12345);
+//	
+//	byte[] receiveData = new byte[1024];         
+//	byte[] sendData = new byte[1024];         
+//	while(true)                {    
+//		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);   
+//		serverSocket.receive(receivePacket);       
+//		String toSplit = new String( receivePacket.getData());   
+//		//System.out.println("RECEIVED: " + sentence);
+//		String[] arraySplit = toSplit.split(",");
+//		String GPSLong = arraySplit[5].substring(1, 2) + arraySplit[5].substring(3, arraySplit[5].length());
+//		String GPSLat = arraySplit[4].substring(2, arraySplit[4].length());
+//		System.out.println("lat is "+GPSLat+" and long is "+GPSLong);
+//		
+//		
+//		
+//		InetAddress IPAddress = receivePacket.getAddress();       
+//		int port = receivePacket.getPort();            
+//		String capitalizedSentence = toSplit.toUpperCase();        
+//		sendData = capitalizedSentence.getBytes();                   
+//		DatagramPacket sendPacket =new DatagramPacket(sendData, sendData.length, IPAddress, port);
+//		serverSocket.send(sendPacket);    
+//		} 
+//	}
+//	
+//	catch (SocketException e) {
+//		// TODO Auto-generated catch block
+//		e.printStackTrace();
+//	} 
+		
+	//test t1 = new test();
+	  int a = 3;
+	  int b = 4;
+	   
+	  System.out.println("Starting");
+	  MyObservable ob = new MyObservable();
+	   
+	  // Add observers
+	  System.out.println("Adding observers");
+	  //ob.addObserver(new MyFirstObserver());
+	  ob.addObserver(new RFIDHighWayProgram());
+	   
+	 // System.out.println("Executing Sum :  " + a + " + " + b);
+	  ob.sum(a, b);
+	  System.out.println("Finished");
+	
+	}
+
+
+
+
 public static int STATUS_DRAW = 0;
+public static int STATUS_GPS_DRAW = 0;
  
     public void draw() {
         // Draw map tiles and country markers
     	//background(0);
+    	
+    	
     	
     	if(STATUS_DRAW == 1){
     	 for ( String key : epcCount.keySet() ) {
@@ -300,8 +401,44 @@ public static int STATUS_DRAW = 0;
     	 STATUS_DRAW = 0;
     	 //System.out.println("Done updating maps Akash Sahoo");
     	}
-    	map.draw();
     	
+    	
+    	if(STATUS_GPS_DRAW == 1 && gpsLocCount > 0){
+    		
+    		location =  new Location(Double.parseDouble(GPSLat),Double.parseDouble(GPSLong));
+    		
+    	  
+    		  
+    	//	map.addMarkers(transitMarkers); 
+    		
+    		float f1 = gpsCoordinates.get(gpsLocCount-1).getLat();
+    		float f2 =gpsCoordinates.get(gpsLocCount).getLat();
+    		int retval = Float.compare(f1, f2);
+    		float g1 = gpsCoordinates.get(gpsLocCount-1).getLon();
+    		float g2 = gpsCoordinates.get(gpsLocCount).getLon();
+    		int retval2 = Float.compare(g1, g2);
+    		
+    	if(Math.abs(retval) > 0 || Math.abs(retval2) >0  ){
+    	  connectionMarker = new SimpleLinesMarker(gpsCoordinates.get(gpsLocCount-1), gpsCoordinates.get(gpsLocCount));
+       	 connectionMarker.setStrokeWeight(3);
+       	 connectionMarker.setColor(color(255,0,0));
+       	 map.addMarker(connectionMarker);
+       	
+    		
+    	}
+    		
+//    		
+//    		pM = new SimplePointMarker(location);
+//    		pM.setColor(color(0, 0, 255, 50));
+//              map.addMarker(pM);
+//           
+    		
+    		STATUS_GPS_DRAW = 0;
+    	}
+//    	Location berlinLocation = new Location(30.6236068,-96.3496818);
+//    	Location mexicoCityLocation = new Location(30.6222469,-96.349666);
+    	 
+    	map.draw();
     	
     //	System.out.println("sahoo draw");
     	//runReader();
@@ -702,6 +839,30 @@ try {
         disconnect();
         tagsEPCRead = "x";
     }
+
+
+
+
+
+	@Override
+	public void update(Observable o, Object arg) {
+		// TODO Auto-generated method stub
+		//System.out.println("Second Observer Notified:" + o + "  :  " + arg);
+		 
+		  System.out.println("Observer Notified:" + " " + arg);
+		 
+		  if(arg.toString().length()>5){
+		  gpsLocCount++;
+		  STATUS_GPS_DRAW = 1;
+		  String[] observerGPS = arg.toString().split(",");
+		  GPSLat = observerGPS[0];
+		  GPSLong = observerGPS[1];
+		  gpsCoordinates.put(gpsLocCount, new Location(Double.parseDouble(GPSLat),Double.parseDouble(GPSLong)));
+		  
+		  }
+		 
+		
+	}
 
 	
 	//RFID Functions
