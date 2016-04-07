@@ -1,7 +1,7 @@
 package tryakash;
 
 import processing.core.PApplet;
-
+import processing.core.PImage;
 import de.fhpotsdam.unfolding.UnfoldingMap;
 import de.fhpotsdam.unfolding.utils.MapUtils;
 import de.fhpotsdam.unfolding.providers.*;
@@ -28,22 +28,20 @@ import org.llrp.ltk.types.*;
 
 import de.fhpotsdam.unfolding.data.Feature;
 import de.fhpotsdam.unfolding.data.GeoJSONReader;
-import de.fhpotsdam.unfolding.data.ShapeFeature;
 import de.fhpotsdam.unfolding.geo.Location;
 
-import java.awt.Color;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import de.fhpotsdam.unfolding.marker.Marker;
-import de.fhpotsdam.unfolding.marker.SimpleLinesMarker;
 import de.fhpotsdam.unfolding.marker.SimplePointMarker;
 
 
@@ -71,11 +69,10 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
     public String tagsEPCRead;
     public static HashMap<String, Integer> epcCount = new HashMap<String, Integer>();
     public static HashMap<String, String> assetEPC = new HashMap<String, String>();
-    public static HashMap<Integer, Location> gpsCoordinates = new HashMap<Integer, Location>();
-    public int gpsLocCount = 0;
     static String GPSLat, GPSLong;
       
     ControlP5 controlP5;
+    ListBox lbCSV;
     Button startReader;
     Button stopReader;
     Textlabel status;
@@ -84,9 +81,10 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
 	
     SimplePointMarker pM;
     SimplePointMarker gpsPM;
-    SimpleLinesMarker connectionMarker;
     Location location;
     Location gpsLocation;
+    
+    PImage backgroundMap;
 	
 	//RFID
 	
@@ -143,6 +141,24 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
     	//controlP5
     	controlP5 = new ControlP5(this);
     	status = controlP5.addLabel("",400,20);
+    	
+    	
+    	
+    	
+    	 lbCSV = controlP5.addListBox("Asset No & EPC Tag",800+160,20,360+50,560); //addListBox(name,x,y,width,height)
+    	// ListBox lbCSVSign = controlP5.addListBox("Sign",800+160+120,20,120,560);
+    	// ListBox lbCSVRead = controlP5.addListBox("Read (Yes/No)",800+160+240,20,120,560);
+    	 
+    	
+    	
+    	// lbCSV.captionLabel().set("slider speed");
+    	// lbCSV.captionLabel().toUpperCase(false);
+    	 // lbCSV.captionLabel().toUpperCase(false);
+    	// lbCSV.captionLabel().set("Listbox label");
+    	 
+    	  
+    	
+    	
     	startReader = controlP5.addButton("Start Reader").setValue(10).setPosition(20,20)
     			.setSize(60,20).setId(1).addCallback(new CallbackListener() {
 					@Override
@@ -174,8 +190,64 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
 			                	  String key = entry.getKey();
 			                	  int value = entry.getValue();
 			                	  System.out.println("Key is "+key+" and Value is "+value);
+			                	  
 			                	  // do stuff
 			                	}
+			                  
+			                  //saving the log of the data
+			                  String fileName = "temp.txt";
+
+			                  try {
+			                      // Assume default encoding.
+			                      FileWriter fileWriter =
+			                          new FileWriter(fileName);
+
+			                      // Always wrap FileWriter in BufferedWriter.
+			                      BufferedWriter bufferedWriter =
+			                          new BufferedWriter(fileWriter);
+
+			                      // Note that write() does not automatically
+			                      // append a newline character.
+			                      Set<String> keys = epcCount.keySet(); // the read tags
+			                      
+			                      bufferedWriter.write("Hello there,");
+			                      bufferedWriter.write(" here is some text.");
+			                      bufferedWriter.newLine();
+			                      bufferedWriter.write("We are writing");
+			                      bufferedWriter.write(" the text to the file.");
+			                      String key;
+			                      Iterator<Map.Entry<String, RFIDObj>> i = lifeExpMap.entrySet().iterator(); 
+			                      
+			                      while(i.hasNext()){
+			                          key = i.next().getKey();
+			                         
+			                          
+//			                          for ( String key : epcCount.keySet() ) {
+//			                     		 String tmpKey = key.toString().trim();
+//			                     		// tmpKey = tmpKey.substring(1, tmpKey.length());
+//			                     		 tmpKey = "0x"+tmpKey;
+//			                     		 String tmp = assetEPC.get(tmpKey);
+//			                     		 System.out.println("Akash assetEPC"+tmp + " , Key = "+tmpKey);
+//			                     		 RFIDObj rfidTmp = null;
+//			                     		 if(tmp!=null)
+//			                     			  rfidTmp = lifeExpMap.get(tmp);
+//			                     		 System.out.println("Akash key "+tmp);
+//			                          }
+			                         // System.out.println("Asset:"+key+", loc: "+lifeExpMap.get(key).x+","+lifeExpMap.get(key).y+" ,EPC:"+(String) lifeExpMap.get(key).epcTag+" ,Sign:"+(String)lifeExpMap.get(key).sign);
+			                          bufferedWriter.write( padRight(key.toString(), 5) +padRight((String) lifeExpMap.get(key).epcTag ,45)+padRight((String) lifeExpMap.get(key).sign ,55));
+			                          bufferedWriter.newLine();
+			                      }
+
+			                      // Always close files.
+			                      bufferedWriter.close();
+			                  }
+			                  catch(IOException ex) {
+			                      System.out.println(
+			                          "Error writing to file '"
+			                          + fileName + "'");
+			                      // Or we could just do this:
+			                      // ex.printStackTrace();
+			                  }
 			                  
 			                  
 			                  
@@ -218,7 +290,9 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
 			                  System.out.println("button clicked.");
 			                 // status.setText(" Reader started ");
 			                  try {
+			                	  
 								runGPS();
+								
 							} catch (Exception e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -236,8 +310,30 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
     	
     	
     	
-        size(800, 600, OPENGL);
-        map = new UnfoldingMap(this, 50, 50, 700, 500, new Google.GoogleMapProvider());
+        size(1400, 600, OPENGL);
+        
+        AbstractMapProvider provider = new Google.GoogleMapProvider();
+		// Set a zoom level
+		int zoomLevel = 15;
+		boolean offline = false;
+		String mbTilesString = "blankLight-1-3.mbtiles";
+		PImage img = createImage(66, 66, RGB);
+		if (offline) {
+			// If you are working offline, you need to use this provider 
+			// to work with the maps that are local on your computer.  
+			provider = new MBTilesMapProvider(mbTilesString);
+			// 3 is the maximum zoom level for working offline
+			 
+		}
+		
+		//Pimage bg = loadImage("bgImage.png")
+        
+        map = new UnfoldingMap(this, 50, 50, 700, 500, provider);
+        
+     
+        backgroundMap = loadImage("bgImage.png");
+        
+        backgroundMap.resize(700, 500);
         MapUtils.createDefaultEventDispatcher(this, map);
 
         // Load lifeExpectancy data
@@ -248,10 +344,21 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
         SimplePointMarker pointMarker;
         String key;
         Iterator<Map.Entry<String, RFIDObj>> i = lifeExpMap.entrySet().iterator(); 
+        
+        
+        
+        String format = "%-40s%s%s%n"; //left justified 40String and 
+        
+        
         while(i.hasNext()){
             key = i.next().getKey();
             System.out.println("Asset:"+key+", loc: "+lifeExpMap.get(key).x+","+lifeExpMap.get(key).y+" ,EPC:"+(String) lifeExpMap.get(key).epcTag+" ,Sign:"+(String)lifeExpMap.get(key).sign);
-            
+            lbCSV.addItem( padRight(key.toString(), 5) +padRight((String) lifeExpMap.get(key).epcTag ,45)+padRight((String) lifeExpMap.get(key).sign ,55), Integer.parseInt(key));
+           // lbCSV.setSize(1, 15);
+           // lbCSVSign.addItem(lifeExpMap.get(key).sign, Integer.parseInt(key));
+           // lbCSVRead.addItem( "NO", Integer.parseInt(key));
+            //lbCSV.bac
+       
             
            loc = new Location(lifeExpMap.get(key).x, lifeExpMap.get(key).y);
         	
@@ -285,19 +392,16 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
             
             
 
-            int zoomLevel = 15;
-    	  //  map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739));
-            double initLat,initLong;
-            initLat = 30.6235;
-            initLong = -96.347619;
-            map.zoomAndPanTo(zoomLevel, new Location(initLat,initLong));
-            gpsCoordinates.put(0, new Location(initLat,initLong));
+          //  int zoomLevel = 15;
+    	    map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739));
+          //  map.zoomAndPanTo(zoomLevel, new Location(30.6235,-96.347619));
             //-96.3476199,30.6235163
     	    // water body location 30.635620 , -96.463557
     	    //epc tag : 0xe300833b2ddd9014035050000
     	  
         	
         }
+        System.out.println("akash"+lbCSV.getItem(1));
        // System.out.println("Asset ID:"+lifeExpMap.get+" GPS_Coordinates:"+tmpObj.x+","+tmpObj.y);
        
 
@@ -309,6 +413,10 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
         // Country markers are shaded according to life expectancy (only once)
        // shadeCountries();
     }
+    public static String padRight(String s, int n) {
+	     return String.format("%1$-" + n + "s", s);  
+	}
+
 
 protected void runGPS() {
 		// TODO Auto-generated method stub
@@ -373,7 +481,7 @@ public static int STATUS_GPS_DRAW = 0;
     	//background(0);
     	
     	
-    	
+    	image(backgroundMap, 50, 50);
     	if(STATUS_DRAW == 1){
     	 for ( String key : epcCount.keySet() ) {
     		 String tmpKey = key.toString().trim();
@@ -403,42 +511,22 @@ public static int STATUS_GPS_DRAW = 0;
     	}
     	
     	
-    	if(STATUS_GPS_DRAW == 1 && gpsLocCount > 0){
+    	if(STATUS_GPS_DRAW == 1){
     		
     		location =  new Location(Double.parseDouble(GPSLat),Double.parseDouble(GPSLong));
-    		
-    	  
-    		  
-    	//	map.addMarkers(transitMarkers); 
-    		
-    		float f1 = gpsCoordinates.get(gpsLocCount-1).getLat();
-    		float f2 =gpsCoordinates.get(gpsLocCount).getLat();
-    		int retval = Float.compare(f1, f2);
-    		float g1 = gpsCoordinates.get(gpsLocCount-1).getLon();
-    		float g2 = gpsCoordinates.get(gpsLocCount).getLon();
-    		int retval2 = Float.compare(g1, g2);
-    		
-    	if(Math.abs(retval) > 0 || Math.abs(retval2) >0  ){
-    	  connectionMarker = new SimpleLinesMarker(gpsCoordinates.get(gpsLocCount-1), gpsCoordinates.get(gpsLocCount));
-       	 connectionMarker.setStrokeWeight(3);
-       	 connectionMarker.setColor(color(255,0,0));
-       	 map.addMarker(connectionMarker);
-       	
-    		
-    	}
-    		
-//    		
-//    		pM = new SimplePointMarker(location);
-//    		pM.setColor(color(0, 0, 255, 50));
-//              map.addMarker(pM);
-//           
+    		pM = new SimplePointMarker(location);
+    		pM.setRadius(4);
+    		pM.setColor(color(255, 0, 0, 30));
+            //pointMarker.setStrokeColor(color(255, 0, 0));
+            //pointMarker.setStrokeWeight(4);
+            map.addMarker(pM);
+           
     		
     		STATUS_GPS_DRAW = 0;
     	}
-//    	Location berlinLocation = new Location(30.6236068,-96.3496818);
-//    	Location mexicoCityLocation = new Location(30.6222469,-96.349666);
-    	 
+    	
     	map.draw();
+    	//image(backgroundMap, 0, 0);
     	
     //	System.out.println("sahoo draw");
     	//runReader();
@@ -472,7 +560,8 @@ try {
     		Thread.sleep(100);
     		status.setText(" READER started ");
 			System.out.println("Starting reader.");
-		       run("169.254.1.1");   
+		       //run("169.254.1.1");
+				run("192.168.1.50");
 		       
 		       //Thread.sleep(5000);
 		       // System.out.println("Stopping reader.");
@@ -518,7 +607,7 @@ try {
             if (columns.length == 7 && !columns[6].equals("GPSLocation")) {
             	 
             	String[] doubleRiversideCoordinates = columns[6].split(":");
-            	RFIDObj tmpObj = new RFIDObj(Double.parseDouble(doubleRiversideCoordinates[0]), Double.parseDouble(doubleRiversideCoordinates[1]), columns[5], columns[2], Integer.parseInt(columns[1]));
+            	RFIDObj tmpObj = new RFIDObj(Double.parseDouble(doubleRiversideCoordinates[0]), Double.parseDouble(doubleRiversideCoordinates[1]), columns[5], columns[2]+" ** "+columns[3], Integer.parseInt(columns[1]));
                 lifeExpMap.put(columns[1],tmpObj);
                 assetEPC.put(tmpObj.epcTag, columns[1]);
                 
@@ -852,12 +941,10 @@ try {
 		  System.out.println("Observer Notified:" + " " + arg);
 		 
 		  if(arg.toString().length()>5){
-		  gpsLocCount++;
 		  STATUS_GPS_DRAW = 1;
 		  String[] observerGPS = arg.toString().split(",");
 		  GPSLat = observerGPS[0];
 		  GPSLong = observerGPS[1];
-		  gpsCoordinates.put(gpsLocCount, new Location(Double.parseDouble(GPSLat),Double.parseDouble(GPSLong)));
 		  
 		  }
 		 
@@ -882,6 +969,7 @@ class RFIDObj{
 	public String epcTag;
 	public String sign;
 	public int assetID;
+	public boolean readStatus;
 	
 	public RFIDObj(double x, double y) {
 		this.x = x;
@@ -894,6 +982,7 @@ class RFIDObj{
 		this.epcTag = epc;
 		this.sign = sgn;
 		this.assetID = asset;
+		this.readStatus = false;
 		// TODO Auto-generated constructor stub
 	}
 	
