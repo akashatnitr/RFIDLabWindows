@@ -15,10 +15,15 @@ import java.util.Observer;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 
 import org.llrp.ltk.generated.parameters.TagReportData;
-
+import org.apache.log4j.chainsaw.Main;
 import org.llrp.ltk.generated.enumerations.*;
 import org.llrp.ltk.generated.interfaces.*;
 import org.llrp.ltk.generated.messages.*;
@@ -26,18 +31,27 @@ import org.llrp.ltk.generated.parameters.*;
 import org.llrp.ltk.net.*;
 import org.llrp.ltk.types.*;
 
+import com.jogamp.opengl.util.av.AudioSink.AudioFormat;
+
 import de.fhpotsdam.unfolding.data.Feature;
 import de.fhpotsdam.unfolding.data.GeoJSONReader;
 import de.fhpotsdam.unfolding.geo.Location;
 
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -87,6 +101,9 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
     PImage backgroundMap;
 	
 	//RFID
+    //distance matrix
+    public static double distanceMatrix[][];
+    public static HashMap<String, RFIDObj> globalRFDataDump = new HashMap<String, RFIDObj>();
 	
 	
 	void run2(String a )
@@ -186,10 +203,25 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
 			                  if(RUNNING_STATUS == 1){
 			                  stop();
 			                  System.out.println(" stop button clicked.");
+			                  PrintWriter writer = null;
+			                  String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
+							try {
+								writer = new PrintWriter("RFID"+timeStamp+".txt", "UTF-8");
+							} catch (FileNotFoundException | UnsupportedEncodingException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+								System.out.println("akash : didnot write ");
+							}
+			                	 
 			                  for (Entry<String, Integer> entry : epcCount.entrySet()) {
 			                	  String key = entry.getKey();
 			                	  int value = entry.getValue();
-			                	  System.out.println("Key is "+key+" and Value is "+value);
+			                	 // System.out.println("Key is "+key+" and Value is "+value);
+			                	  writer.println("RFID File created on "+timeStamp);
+			                	  //lifeExpMap Global database, assetEPC (EPCTag, assetID)
+			                	 // RFIDObj tempFileObject = new RFIDObj();
+			                	  writer.println("Key:"+key+" #Value:"+value+" #Sign:"); //key is the RFID tag and value is the number of tags read 
+			                	  writer.close();
 			                	  
 			                	  // do stuff
 			                	}
@@ -290,7 +322,7 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
 			                  System.out.println("button clicked.");
 			                 // status.setText(" Reader started ");
 			                  try {
-			                	  
+			                	//  playSound();  
 								runGPS();
 								
 							} catch (Exception e) {
@@ -489,6 +521,7 @@ public static int STATUS_GPS_DRAW = 0;
     		 tmpKey = "0x"+tmpKey;
     		 String tmp = assetEPC.get(tmpKey);
     		 System.out.println("Akash assetEPC"+tmp + " , Key = "+tmpKey);
+    		
     		 RFIDObj rfidTmp = null;
     		 if(tmp!=null)
     			  rfidTmp = lifeExpMap.get(tmp);
@@ -608,7 +641,7 @@ try {
             	 
             	String[] doubleRiversideCoordinates = columns[6].split(":");
             	RFIDObj tmpObj = new RFIDObj(Double.parseDouble(doubleRiversideCoordinates[0]), Double.parseDouble(doubleRiversideCoordinates[1]), columns[5], columns[2]+" ** "+columns[3], Integer.parseInt(columns[1]));
-                lifeExpMap.put(columns[1],tmpObj);
+                lifeExpMap.put(columns[1],tmpObj); //asset no
                 assetEPC.put(tmpObj.epcTag, columns[1]);
                 
             }
@@ -833,7 +866,11 @@ try {
             	 tagsEPCRead = (String)tag.getEPCParameter().toString();
             	 temp = tagsEPCRead.split(Pattern.quote(":"));
             	 System.out.println(temp[2]);
-            	 
+            	 if(temp[2].equalsIgnoreCase(" 100000000000000000000002"))
+            	 {
+            		 System.out.println("sound....");
+        			 playSound();
+            	 }
             	 if(epcCount.get(temp[2])==null){
             		 epcCount.put(temp[2], 1);
             	 }else{
@@ -910,6 +947,7 @@ try {
     public void run(String hostname)
     {
     	 status.setText(" Reader started ");
+    	 
          
         connect(hostname);
         deleteROSpecs();
@@ -951,11 +989,286 @@ try {
 		 
 		
 	}
+	
+	
+	public void playSound(){
+
+        String strFilename = "fsk.wav";
+           int BUFFER_SIZE = 128000;
+          File soundFile = null;
+          AudioInputStream audioStream = null;
+          javax.sound.sampled.AudioFormat audioFormat;
+          SourceDataLine sourceLine = null;
+
+
+        try {
+            soundFile = new File(strFilename);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        try {
+            audioStream = AudioSystem.getAudioInputStream(soundFile);
+        } catch (Exception e){
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        audioFormat = audioStream.getFormat();
+
+        DataLine.Info info = new DataLine.Info(SourceDataLine.class, audioFormat);
+        try {
+            sourceLine = (SourceDataLine) AudioSystem.getLine(info);
+            sourceLine.open(audioFormat);
+        } catch (LineUnavailableException e) {
+            e.printStackTrace();
+            System.exit(1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        sourceLine.start();
+
+        int nBytesRead = 0;
+        byte[] abData = new byte[BUFFER_SIZE];
+        while (nBytesRead != -1) {
+            try {
+                nBytesRead = audioStream.read(abData, 0, abData.length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (nBytesRead >= 0) {
+                @SuppressWarnings("unused")
+                int nBytesWritten = sourceLine.write(abData, 0, nBytesRead);
+            }
+        }
+
+        sourceLine.drain();
+        sourceLine.close();
+    }
+	
+	public static synchronized void playSound1() {
+		String url = "fsk.wav";
+		  new Thread(new Runnable() {
+		  // The wrapper thread is unnecessary, unless it blocks on the
+		  // Clip finishing; see comments.
+		    public void run() {
+		      try {
+		        Clip clip = AudioSystem.getClip();
+		        AudioInputStream inputStream = AudioSystem.getAudioInputStream(
+		          Main.class.getResourceAsStream(url));
+		        clip.open(inputStream);
+		        clip.start(); 
+		      } catch (Exception e) {
+		        System.err.println(e.getMessage());
+		      }
+		    }
+		  }).start();
+		}
 
 	
 	//RFID Functions
+	//distance functions
+	private void addDistanceMatrix() {
+   	 int hSize = globalRFDataDump.size();
+   	 System.out.println("Printing the distance Matrix of size "+hSize);
+   	//String tmp;
+   	 distanceMatrix = new double[hSize][hSize];
+   	 
+   	 int i=0,j = 0;
+   	 
+   	 Set<String> keys = globalRFDataDump.keySet();  //get all keys
+   	 for(String k: keys)
+   	 {
+   		 j=0;
+   		 for(String k2: keys)
+       	 {
+   			 if(k.equals(k2)){
+   				 distanceMatrix[i][j] = 0;
+   			 }
+   			 else
+   				 {
+   				 	
+   				 	distanceMatrix[i][j] = getDistance(globalRFDataDump.get(k).x, globalRFDataDump.get(k).y, globalRFDataDump.get(k2).x, globalRFDataDump.get(k2).y);
+   				 }
+   			 j++;
+       	 
+       	 }
+   	     //System.out.println(globalRFDataDump.get(k));
+   		 i++;
+   	 }
+   	 
+   	 
+   	/* Iterator it = globalRFDataDump.entrySet().iterator();
+   	 Iterator it2 = globalRFDataDump.entrySet().iterator();
+   	    while (it.hasNext()) {
+   	        Map.Entry pair = (Map.Entry)it.next();
+   	       // System.out.println(pair.getKey() + " = " + pair.getValue());
+   	        for(int j=0;j<hSize;j++)
+      		 	{
+   	        	Map.Entry pair2 = (Map.Entry)it2.next();
+   	        	  
+      			 if(pair.getKey().toString().equals(pair2.getKey().toString())){
+      				 distanceMatrix[i][j] = 0;
+      			 }
+      			 else
+      				 {
+      				 	
+      				 	distanceMatrix[i][j] = getDistance(globalRFDataDump.get(pair.getKey().toString()).Latitude, globalRFDataDump.get(pair.getKey().toString()).Longitude, globalRFDataDump.get(pair2.getKey().toString()).Latitude, globalRFDataDump.get(pair2.getKey().toString()).Longitude);
+      				 }
+      			 i++;
+      			 it2.remove();
+      		 }
+   	        it.remove(); // avoids a ConcurrentModificationException
+   	    }*/
+   	 
+   	 
+   	 
+   	    
+   	    /*
+   	 for( i=0;i<hSize;i++)
+   	 {
+   		 for(int j=0;j<hSize;j++)
+   		 {	
+   			 if(i==j){
+   				 distanceMatrix[i][j] = 0;
+   			 }
+   			 else
+   				 {
+   				 	
+   				 	distanceMatrix[i][j] = getDistance(globalRFDataDump.get(Integer.toString(i+1)).Latitude, globalRFDataDump.get(Integer.toString(i+1)).Longitude, globalRFDataDump.get(Integer.toString(j+1)).Latitude, globalRFDataDump.get(Integer.toString(j+1)).Longitude);
+   				 }
+   		 }
+   	 }
+   	 */
+   	 
+   	 for( i=0;i<hSize;i++)
+   	 {
+   		 //System.out.println(i+": ");
+   		 for( j=0;j<hSize;j++)
+   		 {	
+   			 //System.out.print(j+" ");
+   			 System.out.format("%10f,%10s",distanceMatrix[i][j], "     ");
+   			 
+   		 }
+   		 System.out.println("");
+   	 }
+   	 
+	}
+   	 
+   	 
+   	int[] findNearestThreePoints(float nLat, float nLng){
+    	int ids[] ={0, 0, 0};
+    	
+    if( globalRFDataDump.size()>3){
+    	RFIDObj threePoints = new RFIDObj();
+    	//threePoints.SampleNumber = rssiCalcKey;
+    	threePoints.x = nLat;
+    	threePoints.y = nLng;
+    	
+    			
+    	globalRFDataDump.put(Integer.toString(threePoints.assetID), threePoints);
+    	System.out.println("The nearest 3 points from the coordinates are ");
+    	
+    	
+    	addDistanceMatrix(); //updated with the new coordinate
+    	int hmSize = globalRFDataDump.size();
+    	double sortDistance[] = new double[hmSize]; 
+    	    	
+    	HashMap<Double, Integer> matrixThreeMin = new HashMap<Double, Integer>();  
+    	Set<String> keys2 = globalRFDataDump.keySet();
+    	String Stmp = keys2.toString();
+    	Stmp = Stmp.replace("[", "");
+    	Stmp = Stmp.replace("]", "");
+    	Stmp = Stmp.replace(" ", "");
+    	String Skeys[] = (Stmp).split(",");
+    	// TODO: add transLat and Lng values
+    	double transLat = 33.4; //akash edit these
+    	double transLng = -96.3;
+    	
+    	Double[] transmitDistance =  new Double[hmSize];
+    	
+    	for( int i = 0;i<hmSize;i++)
+    	{
+    		transmitDistance [i] = getDistance(transLat,transLng,globalRFDataDump.get(Skeys[i]).x, globalRFDataDump.get(Skeys[i]).y);
+    	}
+    	for( int i = 1; i<=hmSize;i++)
+    	{
+    		 //float tempFormat = 2.345343f;
+    		 //float formatted =Float.parseFloat(String.format("%.2f", tempFormat));
+    		// matrixThreeMin.put(distanceMatrix[hmSize-1][i-1], i); //akash change to distance from transmitter getDistance
+    		 
+    		matrixThreeMin.put(transmitDistance[i-1], i);
+    		
+    		sortDistance[i-1] = transmitDistance[i-1];
+    		 
+    		 	
+    	}
+    	//sort
+    	double tmpDistance[] = new double[hmSize];
+    	tmpDistance = sortDistance;
+    	Arrays.sort(sortDistance);
+    	ids[0] = matrixThreeMin.get(sortDistance[1]); // ids give nearest points to the location
+    	ids[1] = matrixThreeMin.get(sortDistance[2]);
+    	ids[2] = matrixThreeMin.get(sortDistance[3]);
+    	sortDistance = tmpDistance;
+    	
+    	
+    	//solve the 1,2 equations
+    	//eq is RSSI = alpha *   *  (distance) ^ -n // solve n and aplha
+    // n = log r2 - log r1 / (log d1 + log d2)
+    	
+    	
+    	//System.out.println("akash skeys"+keys.toString());
+    	//System.out.println("akash double  distance"+Array.toString() );
+    	 //match error with 3rd eq
+    	//double error = globalRFDataDump.get(Skeys[ids[2]-1]).RSSI - (alpha / Math.pow(sortDistance[ids[2]], n));
+    	
+    	//System.out.println("Error from formula is " + error);
+    	 
+    
+    	//find rssi from the equation
+    	//TODO: p5Flotat value declare
+    	double p5FloatLat = 30.0f;
+    	double p5FloatLng = -96.5f;
+    	double distanceofCalculatedRssiFromCenter =  getDistance(transLat, transLng, p5FloatLat, p5FloatLng);//transmitDistance[hmSize-1];
+    	System.out.println(distanceofCalculatedRssiFromCenter);
+    	 
+    	System.out.println("distance trans is " + Arrays.toString(transmitDistance));
+    	
+    	
+    	}
+    	
     
     
+    	return ids;
+    }
+    
+   	 
+   	 
+		
+	
+    
+    
+	
+	double getDistance (double lat1, double lng1, double lat2, double lng2) {
+  	  int R = 6378137; // Earth’s mean radius in meter
+  	  double dLat = rad(lat2 - lat1);
+  	  double dLong = rad(lng2 - lng1);
+  	  double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+  	    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) *
+  	    Math.sin(dLong / 2) * Math.sin(dLong / 2);
+  	  double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  	  double d = R * c;
+  	  return d; // returns the distance in meter
+  	}
+	
+	double rad( double x) {
+  	  return (double) (x * Math.PI / 180);
+  	}
+  
     
 
 }
@@ -986,7 +1299,15 @@ class RFIDObj{
 		this.readStatus = false;
 		// TODO Auto-generated constructor stub
 	}
-	
+	public RFIDObj() {
+		// TODO Auto-generated constructor stub
+		x=0;y=0;
+		epcTag = null;
+		sign = null;
+		assetID = 0;
+		readStatus = false;
+	}
+	 
 	
 	
 	
