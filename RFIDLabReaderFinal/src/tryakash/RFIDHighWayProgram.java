@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 import de.fhpotsdam.unfolding.marker.Marker;
+import de.fhpotsdam.unfolding.marker.MarkerManager;
 import de.fhpotsdam.unfolding.marker.SimplePointMarker;
 
 
@@ -116,6 +117,8 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
     
     PImage signStop, signYield, signStreet;
     Rectangle rectCurrent, rectNext;
+    
+    MarkerManager<Marker> markerManager;;
     
 	//RFID
     //distance matrix
@@ -517,11 +520,12 @@ public class RFIDHighWayProgram extends PApplet implements LLRPEndpoint, Observe
             
 
           //  int zoomLevel = 15;
-    	    map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739));
-          //  map.zoomAndPanTo(zoomLevel, new Location(30.6235,-96.347619));
+    	    map.zoomAndPanTo(zoomLevel, new Location(30.641602 , -96.4739)); //reiverside
+           // map.zoomAndPanTo(zoomLevel, new Location(30.6235,-96.347619)); //college
             //-96.3476199,30.6235163
     	    // water body location 30.635620 , -96.463557
     	    //epc tag : 0xe300833b2ddd9014035050000
+    	    markerManager = map.getDefaultMarkerManager(); 
     	  
         	
         }
@@ -599,6 +603,8 @@ protected void runGPS() {
 
 public static int STATUS_DRAW = 0;
 public static int STATUS_GPS_DRAW = 0;
+public static String signValue = "stop";
+public static int statusMarkerManager = 0;
  
     public void draw() {
         // Draw map tiles and country markers
@@ -608,8 +614,15 @@ public static int STATUS_GPS_DRAW = 0;
     	image(backgroundMap, 50, 50);
     	
     	
+    	if(signValue.equalsIgnoreCase("street")){
+    		image(signCurrent, 850,100, signCurrent.width, signCurrent.height );
+    	}else{
+    		image(signCurrent, 850,100, 170, 170 );
+    		
+    	}
+    	 
     	
-    	image(signCurrent, 850,100, 170, 170 );
+    	
     	image(buttonImage, 0, 0, buttonImage.width, buttonImage.height);
     	//image(signNext, 850,400 );
     	//rect(1100, 100, 170, 170);
@@ -630,12 +643,12 @@ public static int STATUS_GPS_DRAW = 0;
     		// tmpKey = tmpKey.substring(1, tmpKey.length());
     		 tmpKey = "0x"+tmpKey;
     		 String tmp = assetEPC.get(tmpKey);
-    		 System.out.println("Akash assetEPC"+tmp + " , Key = "+tmpKey);
+    		 //System.out.println("Akash assetEPC"+tmp + " , Key = "+tmpKey);
     		
     		 RFIDObj rfidTmp = null;
     		 if(tmp!=null){
     			  rfidTmp = lifeExpMap.get(tmp);
-    		 	System.out.println("Akash key "+tmp);
+    		 	//System.out.println("Akash key "+tmp);
     		 }
     		 if (rfidTmp != null) {
     		   
@@ -688,11 +701,29 @@ public static int STATUS_GPS_DRAW = 0;
     		
     		location =  new Location(Double.parseDouble(GPSLat),Double.parseDouble(GPSLong));
     		pM = new SimplePointMarker(location);
-    		pM.setRadius(4);
+    		pM.setRadius(2);
     		pM.setColor(color(255, 0, 0, 30));
             //pointMarker.setStrokeColor(color(255, 0, 0));
             //pointMarker.setStrokeWeight(4);
-            map.addMarker(pM);
+          //  map.addMarker(pM);
+    		ImageMarker iM = new ImageMarker(location, loadImage("car.png"));
+    		
+    		if(statusMarkerManager == 0){
+    			markerManager.clearMarkers();
+    			markerManager.addMarker(iM);
+    			try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+    			statusMarkerManager = 1;
+    		}else{
+    			markerManager.clearMarkers();
+    			statusMarkerManager = 0;
+    			markerManager.addMarker(iM);
+    			statusMarkerManager = 0;
+    		}
            
     		
     		STATUS_GPS_DRAW = 0;
@@ -1006,8 +1037,8 @@ try {
             	int tmp = NUMBER_OF_READ_TAGS;
             	 tagsEPCRead = (String)tag.getEPCParameter().toString();
             	 temp = tagsEPCRead.split(Pattern.quote(":"));
-            	 //System.out.println(temp[2]);
-            	 if(temp[2].equalsIgnoreCase(" 100000000000000000000002"))
+            	 System.out.println(temp[2]);
+            	 if(temp[2].equalsIgnoreCase(" e20021002000528314cb0272"))
             	 {
             		 if(soundFlag == 0){
             		 System.out.println("sound....");
@@ -1028,8 +1059,17 @@ try {
             	// System.out.println("test: "+assetEPC.get(tmpTagPrint));
             	 if(printTagRFIDObj != null){
             		 System.out.println(printTagRFIDObj.assetID+" # "+printTagRFIDObj.sign+" # "+temp[2]);
-            		 signCurrent = loadImage(printTagRFIDObj.assetID+".png");
-                     signCurrent.resize(170,170);
+            		 
+            		 
+            		 
+            		 
+            		 
+            		 
+            		 String tmpSign = printTagRFIDObj.sign;
+            		 signValue = tmpSign.substring(0,6);
+            		 if(printTagRFIDObj.assetID!=51)
+            			 signCurrent = loadImage(printTagRFIDObj.assetID+".png");
+                    // signCurrent.resize(170,170);
                       
                      
             		    
@@ -1058,7 +1098,7 @@ try {
             	 
             	 NUMBER_OF_READ_TAGS = epcCount.size();
             	 if(tmp != NUMBER_OF_READ_TAGS){
-            		 System.out.println("New tags Read & updating the maps");
+            		// System.out.println("New tags Read & updating the maps");
             		 // tags from the 
               		 STATUS_DRAW = 1;
             		 
